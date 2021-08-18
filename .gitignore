@@ -1,0 +1,5 @@
+engines/
+puzzles/*
+configs/*
+books
+__pycache__

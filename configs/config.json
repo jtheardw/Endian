@@ -1,0 +1,13 @@
+{
+    "run_games": true,
+    "engine_dir": "engines/",
+    "engine_names": ["expo1", "admr", "axwchessbot", "zahak"],
+
+    "opening_book": "books/gm2001.bin",
+    "clock_time": 15000,
+    "clock_inc": 500,
+
+    "run_puzzles": true,
+    "puzzle_suite": "puzzles/bk.epd",
+    "puzzle_movetime": 2000
+}
