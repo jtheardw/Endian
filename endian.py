@@ -15,6 +15,27 @@ from engine import Engine, kill_all_engines
 import suite_settings
 
 
+def get_new_elo(elo1, elo2, result):
+    # for results 1 means first player won, 0 means first player lost
+    # 0.5 means draw
+
+    K = 32                      # arbitrary.
+
+    r1 = 10**(elo1 / 400.)
+    r2 = 10**(elo2 / 400.)
+
+    e1 = r1 / (r1 + r2)
+    e2 = r2 / (r1 + r2)
+
+    s1 = result
+    s2 = 1 - result
+
+    new_elo1 = elo1 + K * (s1 - e1)
+    new_elo2 = elo2 + K * (s2 - e2)
+
+    return new_elo1, new_elo2
+
+
 def run_game(e1, e2, clock_time, inc, starting_moves=[]):
     # should return winner and num moves
     # 1 means white wins, 0.5 means draw, 0 means black wins
@@ -35,8 +56,12 @@ def run_game(e1, e2, clock_time, inc, starting_moves=[]):
     clocks = [clock_time, clock_time]
     while True:
         board_printer.update(board, previous_move=str(moves[-1]) if len(moves) else None)
-        if board.is_stalemate() or board.can_claim_draw() or board.is_insufficient_material():
-            return 0.5, len(moves) // 2, "stalemate" if board.is_stalemate() else "other draw"
+        if board.is_stalemate():
+            return 0.5, len(moves) // 2, "stalemate"
+        if board.is_insufficient_material():
+            return 0.5, len(moves) // 2, "insufficient_material"
+        if board.can_claim_draw():
+            return 0.5, len(moves) // 2, "claimable draw"
         if board.is_checkmate():
             # the person who isn't side to move has won
             return (0 if side_to_move == "white" else 1), len(moves) // 2, "mate"
@@ -45,10 +70,7 @@ def run_game(e1, e2, clock_time, inc, starting_moves=[]):
         # construct a string telling the engine to move about the current
         # boardstate
         engine_to_move.give_history(moves)
-        move_start_time = time.time()
-        move = engine_to_move.go_w_clock(clocks, inc)
-        move_duration = int((time.time() - move_start_time) * 1000) # milliseconds
-
+        move, move_duration = engine_to_move.go_w_clock(clocks, inc)
         clock_idx = 0 if side_to_move == "white" else 1
 
         if clocks[clock_idx] < move_duration:
@@ -73,10 +95,6 @@ def run_game(e1, e2, clock_time, inc, starting_moves=[]):
         else:
             side_to_move = "white"
             engine_to_move = engines[0]
-
-
-def parse_san(board, san):
-    return board.parse_san(san)
 
 
 def parse_puzzle(epd):
@@ -127,7 +145,7 @@ def do_one_puzzle(engine, puzzle_epd, movetime):
     print(f"avoid moves: {puzzle_info.get('avoid_move', 'N/a')}")
 
     engine.give_fen(puzzle_info['fen'])
-    move = engine.go_w_movetime(movetime)
+    move, _ = engine.go_w_movetime(movetime)
 
     success = True
     if 'best_move' in puzzle_info:
@@ -232,7 +250,6 @@ def engine_battle(e1_fname, e2_fname, book, clock, inc, max_book_ply=10, setting
 
     print(f"Match concluded.  Record is {'-'.join(map(str, record))}")
     print()
-    print()
 
     return record
 
@@ -264,6 +281,45 @@ def run_engine_gauntlet(settings):
     return overall_record
 
 
+def compare_engine_elo(settings):
+    hero = settings.engine
+    rival = settings.rival_engine
+    book = settings.opening_book
+    clock_time = settings.elo_clock_time
+    inc = settings.elo_inc
+    max_book_ply = settings.opening_book_ply
+    engine_settings = settings.engine_settings
+    num_rounds = settings.elo_rounds
+
+    elo1, elo2 = 1000, 1000
+
+    overall_record = [0, 0, 0]
+    for r in range(num_rounds):
+        record = engine_battle(
+            hero,
+            rival,
+            book,
+            clock_time,
+            inc,
+            max_book_ply=max_book_ply,
+            settings=engine_settings)
+
+        for i in range(len(record)):
+            overall_record[i] += record[i]
+
+            # update ELO.  remember the 0th index
+            # of record refers to a win by our hero.
+            result = 1 - (i / 2)
+            for i in range(record[i]):
+                elo1, elo2 = get_new_elo(elo1, elo2, result)
+
+        print(f"Rounds passed: {r + 1}")
+        print(f"Relative Elo: {int(elo1)} - {int(elo2)}")
+        print()
+
+    return elo1, elo2
+
+
 def main():
 
     settings = suite_settings.get_settings()
@@ -280,12 +336,16 @@ def main():
         record = run_engine_gauntlet(settings)
     if settings.run_puzzles:
         puzzle_score, puzzle_total = run_puzzle_gauntlet(settings)
+    if settings.compare_elo:
+        elo1, elo2 = compare_engine_elo(settings)
 
     print("Tests complete.  Overall results:")
     if settings.run_games:
         print(f"Engine Guantlet Record: {'-'.join(map(str, record))}")
     if settings.run_puzzles:
         print(f"Puzzle Gauntlet Score: {puzzle_score} / {puzzle_total}")
+    if settings.compare_elo:
+        print(f"Engine Comparison Elo results: {elo1} - {elo2}")
 
 
 if __name__ == "__main__":

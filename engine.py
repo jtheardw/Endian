@@ -1,5 +1,6 @@
 import os
 import subprocess
+import time
 
 SUBPROCS = {}
 
@@ -120,13 +121,20 @@ class Engine:
     def go_w_clock(self, clocks, inc):
         wtime, btime = clocks
         cmd = f"go wtime {wtime} btime {btime} winc {inc} binc {inc}"
+
+        start_time = time.time()
         self.send_uci(cmd)
-        return self._recv_move()
+        move = self._recv_move()
+        duration = int((time.time() - start_time) * 1000)
+        return move, duration
 
     def go_w_movetime(self, movetime):
         cmd = f"go movetime {movetime}"
+        start_time = time.time()
         self.send_uci(cmd)
-        return self._recv_move()
+        move = self._recv_move()
+        duration = int((time.time() - start_time) * 1000)
+        return move, duration
 
     def go(self):
         cmd = f"go"

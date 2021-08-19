@@ -25,7 +25,13 @@ DEFAULT_SETTINGS = {
 
     'run_puzzles': False,
     'puzzle_suite': None,
-    'puzzle_movetime': 10000
+    'puzzle_movetime': 10000,
+
+    'compare_elo': False,
+    'rival_engine': None,
+    'elo_clock_time': 1000,
+    'elo_inc': 80,
+    'elo_rounds': 100
 }
 
 
@@ -121,12 +127,19 @@ class Settings:
             self.puzzle_suite = _layer_settings('puzzle_suite')
             self.puzzle_movetime = _layer_settings('puzzle_movetime')
 
+        self.compare_elo = _layer_settings('compare_elo')
+        if self.compare_elo:
+            self.rival_engine = _layer_settings('rival_engine')
+            self.elo_clock_time = _layer_settings('elo_clock_time')
+            self.elo_inc = _layer_settings('elo_inc')
+            self.elo_rounds = _layer_settings('elo_rounds')
+
     def verify(self):
         # return false if something crucial is missing
         if self.engine is None:
             # no engine
             return False, "Missing engine"
-        if not self.run_games and not self.run_puzzles:
+        if not self.run_games and not self.run_puzzles and not self.compare_elo:
             # we're not testing anything
             return False, "No tests"
         if self.run_games:
@@ -159,7 +172,12 @@ def get_settings():
         'clock_inc': args.clock_inc,
         'run_puzzles': args.run_puzzles,
         'puzzle_suite': args.puzzle_suite,
-        'puzzle_movetime': args.puzzle_movetime
+        'puzzle_movetime': args.puzzle_movetime,
+        'compare_elo': args.compare_elo,
+        'rival_engine': args.rival_engine,
+        'elo_clock_time': args.elo_clock_time,
+        'elo_inc': args.elo_inc,
+        'elo_rounds': args.elo_rounds
     }
 
     return Settings(arg_settings)
@@ -174,7 +192,6 @@ def get_settings_arg_parser():
     parser.add_argument("--config", default=None, help="Config file to apply")
     parser.add_argument("--no-config", action="store_true", help="Don't use a config file")
     parser.add_argument("--engine-settings", default=None, help="JSON string specifying all options to set for engines")
-
 
     # games
     parser.add_argument("--run-games", default=None, action="store_true", help="Give engine a guantlet of games")
@@ -202,5 +219,18 @@ def get_settings_arg_parser():
 
     ## time controls
     parser.add_argument("--puzzle-movetime", type=int, default=None, help="Amount of milliseconds to give the engine on each puzzle position")
+
+
+    # ELO comparison
+    parser.add_argument("--compare-elo", default=None, action="store_true", help="Have a rival engine battle yours several times to determine a rough elo comparison.")
+
+    # rival engine
+    parser.add_argument("--rival-engine", type=str, default=None, help="Location of the rival engine")
+
+    parser.add_argument("--elo-clock-time", type=int, default=None, help="Starting clock time for ELO comparison games.")
+
+    parser.add_argument("--elo-inc", type=int, default=None, help="Increment for ELO comparison games.")
+
+    parser.add_argument("--elo-rounds", type=int, default=None, help="Number of rounds to play for ELO comparison.")
 
     return parser
